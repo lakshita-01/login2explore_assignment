@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Shipment Management</title>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .card { background: #fff; padding: 32px; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); width: 100%; max-width: 520px; }
+    h2 { text-align: center; margin-bottom: 24px; color: #333; }
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 4px; color: #555; }
+    input { width: 100%; padding: 9px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+    input:disabled { background: #f5f5f5; color: #aaa; }
+    .row { display: flex; gap: 10px; }
+    .row .form-group { flex: 1; }
+    .shipment-row { display: flex; gap: 8px; align-items: flex-end; }
+    .shipment-row .form-group { flex: 1; margin-bottom: 0; }
+    .btn { padding: 9px 18px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; font-weight: bold; }
+    .btn-primary  { background: #007bff; color: #fff; }
+    .btn-success  { background: #28a745; color: #fff; }
+    .btn-warning  { background: #fd7e14; color: #fff; }
+    .btn-secondary{ background: #6c757d; color: #fff; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Shipment Management</h2>
+    <form id="shipmentForm" onsubmit="return false;">
+
+      <div class="shipment-row" style="margin-bottom:14px;">
+        <div class="form-group">
+          <label for="shipmentNo">Shipment No</label>
+          <input type="text" id="shipmentNo" placeholder="Enter Shipment No" />
+        </div>
+        <button type="button" class="btn btn-primary" onclick="checkShipment()">Check</button>
+      </div>
+
+      <div class="form-group">
+        <label for="description">Description</label>
+        <input type="text" id="description" placeholder="Description" disabled />
+      </div>
+
+      <div class="row">
+        <div class="form-group">
+          <label for="source">Source</label>
+          <input type="text" id="source" placeholder="Source" disabled />
+        </div>
+        <div class="form-group">
+          <label for="destination">Destination</label>
+          <input type="text" id="destination" placeholder="Destination" disabled />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="form-group">
+          <label for="shippingDate">Shipping Date</label>
+          <input type="date" id="shippingDate" disabled />
+        </div>
+        <div class="form-group">
+          <label for="deliveryDate">Expected Delivery Date</label>
+          <input type="date" id="deliveryDate" disabled />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="button" id="saveBtn"   class="btn btn-success"   onclick="saveData()"   disabled>Save</button>
+        <button type="button" id="updateBtn" class="btn btn-warning"   onclick="updateData()" disabled>Update</button>
+        <button type="button" id="resetBtn"  class="btn btn-secondary" onclick="resetForm()"  disabled>Reset</button>
+      </div>
+
+    </form>
+  </div>
+
+  <script>
+    const TOKEN     = "90935251|-31949236496872407|90958458";
+    const USER_TOKEN = "90935251|-31949236553937623|90958464";
+    const DB_NAME  = "DELIVERY-DB";
+    const REL_NAME = "SHIPMENT-TABLE";
+
+    let recNo = "";
+
+    function jpdb(endpoint, reqObj, callback) {
+      $.ajax({
+        url: endpoint,
+        type: "POST",
+        data: JSON.stringify(reqObj),
+        processData: false,
+        contentType: "application/json",
+        dataType: "json",
+        success: callback,
+        error: function(xhr) {
+          console.error("Error:", xhr.status, xhr.responseText);
+          try { callback(JSON.parse(xhr.responseText)); }
+          catch (e) { alert("JPDB Error " + xhr.status); }
+        }
+      });
+    }
+
+    function makeReq(cmd, data, recno = null) {
+      const tok = (cmd === "GET_ALL") ? TOKEN : USER_TOKEN;
+      let obj = { token: tok, cmd: cmd, dbName: DB_NAME, rel: REL_NAME, jsonStr: data };
+      if (recno !== null) obj.rec_no = recno;
+      return obj;
+    }
+
+    function resetForm() {
+      recNo = "";
+      $("#shipmentForm")[0].reset();
+      $("#shipmentNo").prop("disabled", false);
+      $("#description,#source,#destination,#shippingDate,#deliveryDate").prop("disabled", true);
+      $("#saveBtn,#updateBtn,#resetBtn").prop("disabled", true);
+    }
+
+    function enableFields() {
+      $("#description,#source,#destination,#shippingDate,#deliveryDate").prop("disabled", false);
+    }
+
+    function getFormData() {
+      return {
+        ShipmentNo: $("#shipmentNo").val().trim(),
+        Description: $("#description").val().trim(),
+        Source: $("#source").val().trim(),
+        Destination: $("#destination").val().trim(),
+        ShippingDate: $("#shippingDate").val(),
+        ExpectedDeliveryDate: $("#deliveryDate").val()
+      };
+    }
+
+    function fillForm(data) {
+      $("#description").val(data.Description);
+      $("#source").val(data.Source);
+      $("#destination").val(data.Destination);
+      $("#shippingDate").val(data.ShippingDate);
+      $("#deliveryDate").val(data.ExpectedDeliveryDate);
+    }
+
+    function checkShipment() {
+      const shipNo = $("#shipmentNo").val().trim();
+      if (!shipNo) return alert("Enter Shipment No");
+
+      jpdb("/api/irl", makeReq("GET_ALL", "{}"), function(res) {
+        if (res.status !== 200) { alert("Error: " + res.message); return; }
+
+        const parsed = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+        const match = (parsed.json_records || []).find(r => r.record && r.record.ShipmentNo === shipNo);
+
+        if (!match) {
+          recNo = "";
+          enableFields();
+          $("#saveBtn,#resetBtn").prop("disabled", false);
+          $("#updateBtn").prop("disabled", true);
+          return;
+        }
+
+        recNo = match.rec_no;
+        fillForm(match.record);
+        enableFields();
+        $("#shipmentNo").prop("disabled", true);
+        $("#updateBtn,#resetBtn").prop("disabled", false);
+        $("#saveBtn").prop("disabled", true);
+      });
+    }
+
+    function saveData() {
+      jpdb("/api/iml", makeReq("PUT", getFormData()), function(res) {
+        if (res.status === 200) {
+          const d = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+          recNo = Array.isArray(d.rec_no) ? d.rec_no[0] : d.rec_no;
+          alert("Saved!"); resetForm();
+        } else alert("Save failed: " + res.message);
+      });
+    }
+
+    function updateData() {
+      // JPDB UPDATE is restricted; use REMOVE + PUT instead
+      const removeReq = { token: USER_TOKEN, cmd: 'REMOVE', dbName: DB_NAME, rel: REL_NAME, record: Number(recNo) };
+      jpdb("/api/iml", removeReq, function(removeRes) {
+        if (removeRes.status !== 200) { alert("Update failed (remove step): " + removeRes.message); return; }
+        jpdb("/api/iml", makeReq("PUT", getFormData()), function(putRes) {
+          if (putRes.status === 200) {
+            const d = typeof putRes.data === "string" ? JSON.parse(putRes.data) : putRes.data;
+            recNo = Array.isArray(d.rec_no) ? d.rec_no[0] : d.rec_no;
+            alert("Updated!"); resetForm();
+          } else alert("Update failed (reinsert step): " + putRes.message);
+        });
+      });
+    }
+
+    $(document).ready(resetForm);
+  </script>
+</body>
+</html>
