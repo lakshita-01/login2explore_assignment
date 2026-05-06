@@ -6,6 +6,7 @@
 - [Illustrations](#illustrations)
 - [Scope of Functionalities](#scope-of-functionalities)
 - [Examples of Use](#examples-of-use)
+- [Token Setup](#token-setup)
 - [Project Status](#project-status)
 - [Release History](#release-history)
 - [Sources](#sources)
@@ -78,7 +79,7 @@ login2xplore/
 |---------|-------------|
 | **Check** | Looks up the entered Shipment No in the database. Enables Save for new records, Update for existing ones. |
 | **Save** | Inserts a new shipment record into the database. |
-| **Update** | Modifies an existing shipment record in the database. |
+| **Update** | Modifies an existing shipment record by removing the old record and reinserting the updated one (REMOVE + PUT), since JPDB's UPDATE command is restricted. |
 | **Reset** | Clears all form fields and returns the form to its initial state. |
 
 ### Form Fields
@@ -115,7 +116,37 @@ login2xplore/
 1. Enter an existing Shipment No (e.g. `SH100`) and click **Check**
 2. The form auto-populates with the stored data
 3. Modify any field(s)
-4. Click **Update** — record is updated in JPDB
+4. Click **Update** — the existing record is removed and reinserted with the new data (REMOVE + PUT) due to JPDB UPDATE restrictions
+
+---
+
+## Token Setup
+
+Tokens are loaded from a `.env` file at startup by `app.js` and injected into `index.html` at runtime, replacing the `__TOKEN__` and `__USER_TOKEN__` placeholders. **Tokens are never exposed in source code or committed to version control** (`.env` is listed in `.gitignore`).
+
+### Steps
+
+1. Copy the example file:
+   ```
+   copy .env.example .env
+   ```
+
+2. Open `.env` and fill in your tokens:
+   ```
+   JPDB_TOKEN=your_connection_token_here
+   JPDB_USER_TOKEN=your_user_token_here
+   ```
+
+3. **Where to get the tokens** — Log in to [login2explore.com](https://login2explore.com), go to your dashboard, and copy:
+   - **Connection Token (`JPDB_TOKEN`)** — used for read operations (`GET_ALL`)
+   - **User Token (`JPDB_USER_TOKEN`)** — used for write operations (`PUT`, `REMOVE`)
+
+4. Start the server — it will fail with a clear error if either token is missing:
+   ```
+   node app.js
+   ```
+
+> **Note:** Never commit your `.env` file. Use `.env.example` (with placeholder values) as the template for other contributors.
 
 ---
 
