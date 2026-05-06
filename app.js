@@ -1,10 +1,24 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const dotenvPath = path.join(__dirname, '.env');
+if (fs.existsSync(dotenvPath)) {
+  fs.readFileSync(dotenvPath, 'utf8').split('\n').forEach(line => {
+    const [key, val] = line.split('=');
+    if (key && val) process.env[key.trim()] = val.trim();
+  });
+}
 
-const PORT = 8000;
+const PORT      = 8000;
 const JPDB_HOST = 'api.login2explore.com';
 const JPDB_PORT = 5577;
+const TOKEN      = process.env.JPDB_TOKEN;
+const USER_TOKEN = process.env.JPDB_USER_TOKEN;
+
+if (!TOKEN || !USER_TOKEN) {
+  console.error('ERROR: JPDB_TOKEN and JPDB_USER_TOKEN must be set in .env');
+  process.exit(1);
+}
 
 const server = http.createServer((req, res) => {
 
@@ -16,8 +30,11 @@ const server = http.createServer((req, res) => {
         res.writeHead(500, { 'Content-Type': 'text/plain' });
         return res.end('Error loading index.html');
       }
+      const html = data
+        .replace('__TOKEN__', TOKEN)
+        .replace('__USER_TOKEN__', USER_TOKEN);
       res.writeHead(200, { 'Content-Type': 'text/html' });
-      return res.end(data);
+      return res.end(html);
     });
     return;
   }
